@@ -27,13 +27,6 @@ jobs:
           TZ: "Asia/Almaty"
           CGO_ENABLED: 0
 
-      - name: submit coverage
-        run: |
-          go install github.com/mattn/goveralls@latest
-          $(go env GOPATH)/bin/goveralls -service="github" -coverprofile=$GITHUB_WORKSPACE/profile.cov
-        env:
-          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: run golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
