@@ -9,6 +9,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions: { packages: write }
     steps:
       - name: set up go
         uses: actions/setup-go@v4
@@ -95,3 +96,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           tags: semior/grpc-echo:latest,semior/grpc-echo:${{github.ref_name}}
+
+      - name: curl updater
+        run:
+          curl --max-time 300 https://upd.semior.dev/update/grpc-echo/${{secrets.UPDATER_TOKEN}}
