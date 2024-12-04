@@ -31,6 +31,5 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 
-WORKDIR /etc/groxy
 EXPOSE 8080
 ENTRYPOINT ["/usr/bin/grpc-echo", "--addr", ":8080"]
