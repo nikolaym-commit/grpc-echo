@@ -6,13 +6,17 @@ on:
     tags: [ v* ]
   pull_request:
 
+env:
+  GOVERSION: 1.23.3
+  GOLANGCI_LINT_VERSION: v1.60.2
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: set up go 1.22.0
+      - name: set up go ${{ env.GOVERSION }}
         uses: actions/setup-go@v4
-        with: { go-version: 1.22.0 }
+        with: { go-version: ${{ env.GOVERSION }} }
 
       - name: checkout
         uses: actions/checkout@v2
@@ -26,6 +30,16 @@ jobs:
         env:
           TZ: "Asia/Almaty"
           CGO_ENABLED: 0
+
+      - name: run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
+          working-directory: .
+          args: --timeout 5m
+          skip-cache: true
+          skip-pkg-cache: true
+          skip-build-cache: true
 
       - name: set up QEMU
         uses: docker/setup-qemu-action@v1
