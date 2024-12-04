@@ -1,0 +1,42 @@
+# https://taskfile.dev
+
+version: '3'
+
+env:
+  GO_MODULE: github.com/Semior001/grpc-echo
+
+tasks:
+  install:
+    desc: "builds and install local grpc-echo version"
+    cmd: |
+      VERSION=$(git describe --tags --long)
+      go install -ldflags "-X 'main.version=$VERSION-local' -s -w" ./cmd/...
+
+  check:
+    desc: "run all CI/CD checks"
+    deps:
+      - test
+      - lint
+
+  lint:
+    desc: "lint"
+    cmds:
+      - golangci-lint run --config=.golangci.yml --timeout=5m ./...
+
+  test:
+    desc: "run tests"
+    cmd: |
+      go test -race -count=1 ./...
+
+  gen:
+    desc: "generate all"
+    deps:
+      - gen/api
+
+  gen/api:
+    desc: "generate annotation"
+    cmd: |
+      protoc \
+        --go_out=./echopb --go_opt=module=$GO_MODULE/echopb \
+        --go-grpc_out=./echopb --go-grpc_opt=module=$GO_MODULE/echopb \
+        ./echopb/*.proto

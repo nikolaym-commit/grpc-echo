@@ -1,0 +1,108 @@
+name: build
+
+on:
+  push:
+    branches: [ master ]
+    tags: [ v* ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: set up go 1.22.0
+        uses: actions/setup-go@v4
+        with: { go-version: 1.22.0 }
+
+      - name: checkout
+        uses: actions/checkout@v2
+        with: { fetch-depth: 0 }
+
+      - name: build and test
+        run: |
+          go test -v -timeout=100s -covermode=count -coverprofile=$GITHUB_WORKSPACE/profile.cov_tmp ./...
+          cat $GITHUB_WORKSPACE/profile.cov_tmp | grep -v "mock_" > $GITHUB_WORKSPACE/profile.cov
+        working-directory: .
+        env:
+          TZ: "Asia/Almaty"
+          CGO_ENABLED: 0
+
+      - name: submit coverage
+        run: |
+          go install github.com/mattn/goveralls@latest
+          $(go env GOPATH)/bin/goveralls -service="github" -coverprofile=$GITHUB_WORKSPACE/profile.cov
+        env:
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.56.2
+          working-directory: .
+          args: --timeout 5m
+          skip-cache: true
+          skip-pkg-cache: true
+          skip-build-cache: true
+
+      - name: set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: set up Docker Buildx
+        if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
+        uses: docker/setup-buildx-action@v1
+
+      - name: login to ghcr
+        if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: login to dockerhub
+        if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
+        uses: docker/login-action@v1
+        with:
+          username: semi
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: build and push master image to ghcr.io
+        if: ${{ github.ref == 'refs/heads/master' }}
+        uses: docker/build-push-action@v5
+        timeout-minutes: 3
+        continue-on-error: true
+        with:
+          push: true
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          tags: ghcr.io/semior001/grpc-echo:latest,ghcr.io/semior001/grpc-echo:${{github.sha}}
+
+      - name: build and push master image to dockerhub
+        if: ${{ github.ref == 'refs/heads/master' }}
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          tags: semior/grpc-echo:latest,semior/grpc-echo:${{github.sha}}
+
+      - name: build and push tagged (latest) image to ghcr.io
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        uses: docker/build-push-action@v5
+        continue-on-error: true
+        timeout-minutes: 3
+        with:
+          push: true
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          tags: ghcr.io/semior001/grpc-echo:latest,ghcr.io/semior001/grpc-echo:${{github.sha}}
+
+      - name: build and push tagged (latest) image to dockerhub
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
+        id: docker_build
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          context: .
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          tags: semior/grpc-echo:latest,semior/grpc-echo:${{github.sha}}
