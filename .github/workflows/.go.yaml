@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: set up go ${{ env.GOVERSION }}
+      - name: set up go
         uses: actions/setup-go@v4
         with: { go-version: ${{ env.GOVERSION }} }
 
