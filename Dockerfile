@@ -10,6 +10,7 @@ RUN apk add --no-cache --update git bash curl tzdata && \
 
 COPY ./echopb/ /srv/echopb
 COPY ./main.go /srv/main.go
+COPY ./pkg/ /srv/pkg
 
 COPY ./go.mod /srv/go.mod
 COPY ./go.sum /srv/go.sum
