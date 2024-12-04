@@ -10,7 +10,7 @@ tasks:
     desc: "builds and install local grpc-echo version"
     cmd: |
       VERSION=$(git describe --tags --long)
-      go install -ldflags "-X 'main.version=$VERSION-local' -s -w" ./cmd/...
+      go install -ldflags "-X 'main.version=$VERSION-local' -s -w" ./...
 
   check:
     desc: "run all CI/CD checks"

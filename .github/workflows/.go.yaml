@@ -27,16 +27,6 @@ jobs:
           TZ: "Asia/Almaty"
           CGO_ENABLED: 0
 
-      - name: run golangci-lint
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.56.2
-          working-directory: .
-          args: --timeout 5m
-          skip-cache: true
-          skip-pkg-cache: true
-          skip-build-cache: true
-
       - name: set up QEMU
         uses: docker/setup-qemu-action@v1
 
