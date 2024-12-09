@@ -18,15 +18,22 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/grpclog"
 	"github.com/Semior001/grpc-echo/pkg/grpcx"
 	"github.com/Semior001/grpc-echo/pkg/service"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/grpclog"
 )
 
 var opts struct {
+	SSL struct {
+		Enable bool   `long:"enable"        env:"ENABLE" description:"Enable SSL"`
+		Cert   string `long:"cert"          env:"CERT" description:"path to cert.pem file"`
+		Key    string `long:"key"           env:"KEY"  description:"path to key.pem file"`
+	} `group:"ssl" namespace:"ssl" env-namespace:"SSL"`
+
 	Addr  string `short:"a" long:"addr" env:"ADDR" default:":8080" description:"Address to listen on"`
-	JSON  bool   `long:"json"           env:"JSON"             description:"Enable JSON logging"`
-	Debug bool   `long:"debug"          env:"DEBUG"            description:"Enable debug mode"`
+	JSON  bool   `long:"json"           env:"JSON"                 description:"Enable JSON logging"`
+	Debug bool   `long:"debug"          env:"DEBUG"                description:"Enable debug mode"`
 }
 
 var version = "unknown"
@@ -64,26 +71,42 @@ func main() {
 func run(ctx context.Context) error {
 	svc := &service.EchoService{}
 	healthHandler := health.NewServer()
-	srv := grpc.NewServer(
-		grpc.ChainUnaryInterceptor(
-			svc.AppendTimestampInterceptor,
-			grpcx.LogInterceptor,
-		),
-	)
 
-	grpclog.SetLoggerV2(grpcx.Logger{})
-
-	healthpb.RegisterHealthServer(srv, healthHandler)
-	echopb.RegisterEchoServiceServer(srv, svc)
-	reflection.Register(srv)
+	var cred credentials.TransportCredentials
 
 	lis, err := net.Listen("tcp", opts.Addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", opts.Addr, err)
 	}
 
+	if opts.SSL.Enable {
+		if opts.SSL.Cert == "" || opts.SSL.Key == "" {
+			return fmt.Errorf("cert and key must be provided for static ssl")
+		}
+
+		slog.Info("using static ssl",
+			slog.String("cert", opts.SSL.Cert),
+			slog.String("key", opts.SSL.Key))
+
+		if cred, err = credentials.NewServerTLSFromFile(opts.SSL.Cert, opts.SSL.Key); err != nil {
+			return fmt.Errorf("load cert and key: %w", err)
+		}
+	}
+
+	srv := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			svc.AppendTimestampInterceptor,
+			grpcx.LogInterceptor,
+		),
+		grpc.Creds(cred),
+	)
+	healthpb.RegisterHealthServer(srv, healthHandler)
+	echopb.RegisterEchoServiceServer(srv, svc)
+	reflection.Register(srv)
+
 	ewg, ctx := errgroup.WithContext(ctx)
 	ewg.Go(func() error {
+		slog.Info("listening gRPC", slog.String("addr", lis.Addr().String()))
 		healthHandler.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 		if err := srv.Serve(lis); err != nil {
 			return fmt.Errorf("proxy server: %w", err)
@@ -92,12 +115,13 @@ func run(ctx context.Context) error {
 	})
 	ewg.Go(func() error {
 		<-ctx.Done()
+		slog.Info("shutting down gRPC")
 		healthHandler.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 		srv.GracefulStop()
 		return nil
 	})
 
-	if err := ewg.Wait(); err != nil {
+	if err = ewg.Wait(); err != nil {
 		return err
 	}
 
@@ -111,7 +135,6 @@ func setupLog(dbg, json bool) {
 
 	if dbg {
 		handlerOpts.Level = slog.LevelDebug
-		handlerOpts.AddSource = true
 	}
 
 	var handler slog.Handler
@@ -122,4 +145,7 @@ func setupLog(dbg, json bool) {
 	}
 
 	slog.SetDefault(slog.New(handler))
+	grpclog.SetLoggerV2(grpcx.Logger{
+		Logger: slog.NewLogLogger(handler, slog.LevelDebug),
+	})
 }

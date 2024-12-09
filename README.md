@@ -10,12 +10,18 @@ Usage:
   grpc-echo [OPTIONS]
 
 Application Options:
-  -a, --addr=  Address to listen on (default: :8080) [$ADDR]
-      --json   Enable JSON logging [$JSON]
-      --debug  Enable debug mode [$DEBUG]
+  -a, --addr=       Address to listen on (default: :8080) [$ADDR]
+      --json        Enable JSON logging [$JSON]
+      --debug       Enable debug mode [$DEBUG]
+
+ssl:
+      --ssl.enable  Enable SSL [$SSL_ENABLE]
+      --ssl.cert=   path to cert.pem file [$SSL_CERT]
+      --ssl.key=    path to key.pem file [$SSL_KEY]
 
 Help Options:
-  -h, --help   Show this help message
+  -h, --help        Show this help message
+
 ```
 
 ## installation
@@ -30,6 +36,13 @@ or you can use the docker image from either dockerhub or ghcr:
 $ docker run --rm -p 8080:8080 ghcr.io/semior001/grpc-echo:latest
 $ docker run --rm -p 8080:8080 semior001/grpc-echo:latest
 ```
+
+## ssl support
+standard `http.Transport` cannot be used with gRPC unless you specify `ForceAttemptHTTP2: true`, and even if you do, it will not work without TLS as it's working around `tls.NextProto`, which can only be used with TLS.
+
+Thus, if you're using reverse-proxy that uses such transport (e.g. [reproxy](https://github.com/umputun/reproxy)), you need the gRPC server to support TLS, at least with a self-signed certificate.
+
+```shell
 
 ## some benchmarks
 

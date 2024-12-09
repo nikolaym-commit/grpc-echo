@@ -1,5 +1,5 @@
 // Package grpcx provides helper types and functions to work with gRPC.
-//nolint:revive // ok to have no godoc on obvious methods
+//nolint:revive,govet // ok to have no godoc on obvious methods, ok for format without placeholders
 package grpcx
 
 import (
@@ -8,6 +8,7 @@ import (
 	"context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
+	"log"
 )
 
 // LogInterceptor logs gRPC calls.
@@ -31,20 +32,36 @@ func LogInterceptor(
 }
 
 // Logger implements grpclog.LoggerV2 to log to slog.
-type Logger struct{}
+type Logger struct {
+	Logger *log.Logger
+}
 
-func (Logger) Info(args ...any)                    { slog.Info("grpclog", args...) }
-func (Logger) Infoln(args ...any)                  { slog.Info("grpclog", args...) }
-func (Logger) Warning(args ...any)                 { slog.Warn("grpclog", args...) }
-func (Logger) Warningln(args ...any)               { slog.Warn("grpclog", args...) }
-func (Logger) Infof(format string, args ...any)    { slog.Info("grpclog | "+format, args...) }
-func (Logger) Warningf(format string, args ...any) { slog.Warn("grpclog | "+format, args...) }
-func (Logger) Error(args ...any)                   { slog.Error("grpclog", args...) }
-func (Logger) Errorln(args ...any)                 { slog.Error("grpclog", args...) }
-func (Logger) Errorf(format string, args ...any)   { slog.Error("grpclog | "+format, args...) }
-func (Logger) Fatal(args ...any)                   { slog.Error("grpclog | fatal", args...); os.Exit(1) }
-func (Logger) Fatalln(args ...any)                 { slog.Error("grpclog | fatal", args...); os.Exit(1) }
-func (Logger) Fatalf(format string, args ...any)   { slog.Error("grpclog | "+format, args...); os.Exit(1) }
+func (l Logger) Info(args ...any)    { l.log("[INFO]", args...) }
+func (l Logger) Warning(args ...any) { l.log("[WARN]", args...) }
+func (l Logger) Error(args ...any)   { l.log("[ERROR]", args...) }
+func (l Logger) Fatal(args ...any)   { l.log("[FATAL]", args...); os.Exit(1) }
+
+func (l Logger) Infoln(args ...any)    { l.logln("[INFO]", args...) }
+func (l Logger) Warningln(args ...any) { l.logln("[WARN]", args...) }
+func (l Logger) Errorln(args ...any)   { l.logln("[ERROR]", args...) }
+func (l Logger) Fatalln(args ...any)   { l.logln("[FATAL]", args...); os.Exit(1) }
+
+func (l Logger) Infof(format string, args ...any)    { l.logf("[INFO] "+format, args...) }
+func (l Logger) Warningf(format string, args ...any) { l.logf("[WARN] "+format, args...) }
+func (l Logger) Errorf(format string, args ...any)   { l.logf("[ERROR] "+format, args...) }
+func (l Logger) Fatalf(format string, args ...any)   { l.logf("[FATAL] "+format, args...); os.Exit(1) }
+
+func (l Logger) log(lvl string, args ...any) {
+	l.Logger.Print(append([]any{"[grpclog]", lvl}, args...)...)
+}
+
+func (l Logger) logln(lvl string, args ...any) {
+	l.Logger.Println(append([]any{"[grpclog]", lvl}, args...)...)
+}
+
+func (l Logger) logf(format string, args ...any) {
+	l.Logger.Printf("[grpclog] "+format, args...)
+}
 
 func (Logger) V(l int) bool {
 	lvl := slog.Level(-1)
