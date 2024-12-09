@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc"
 	"time"
 	"context"
-	"google.golang.org/grpc/peer"
+	"github.com/Semior001/grpc-echo/pkg/grpcx"
 )
 
 // EchoService implements the EchoServiceServer interface.
@@ -23,8 +23,8 @@ func (s *EchoService) Echo(ctx context.Context, req *echopb.EchoRequest) (resp *
 		Body:             req.Ping,
 		HandlerReachedAt: timestamppb.Now(),
 	}
-	if p, ok := peer.FromContext(ctx); ok {
-		resp.RemoteAddr = p.Addr.String()
+	if ip, err := grpcx.RealIP(ctx); err == nil {
+		resp.RemoteAddr = ip
 	}
 	for k, vals := range md {
 		resp.Headers[k] = strings.Join(vals, ",")
