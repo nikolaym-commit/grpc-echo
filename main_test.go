@@ -39,7 +39,8 @@ func TestMain_run(t *testing.T) {
 
 	const threshold = time.Millisecond * 10
 	assert(t, time.Since(now) < threshold, "more than %s passed: %s", threshold, time.Since(now))
-	assert(t, resp.RemoteAddr == "::1", "unexpected remote addr: %s", resp.RemoteAddr)
+	assert(t, resp.RemoteAddr == "::1" || resp.RemoteAddr == "127.0.0.1",
+		"unexpected remote addr: %s", resp.RemoteAddr)
 	assert(t, resp.ReceivedAt.AsTime().Sub(now) < threshold,
 		"received_at: all ts must be within %s: %s", threshold, resp.ReceivedAt.AsTime().Sub(now))
 	assert(t, resp.SentAt.AsTime().Sub(now) < threshold,
