@@ -5,6 +5,8 @@ This is a simple echo server that uses gRPC to echo back the request, with some 
 
 The specification is in [echopb/echo.proto](echopb/echo.proto).
 
+The server is available at `https://grpc-echo.semior.dev`.
+
 ```
 Usage:
   grpc-echo [OPTIONS]
@@ -42,12 +44,12 @@ standard `http.Transport` cannot be used with gRPC unless you specify `ForceAtte
 
 Thus, if you're using reverse-proxy that uses such transport (e.g. [reproxy](https://github.com/umputun/reproxy)), you need the gRPC server to support TLS, at least with a self-signed certificate.
 
-```shell
-
 ## some benchmarks
 
 this is definitely **not** a fastest echo server in the world, but in my scenarios it's just enough.
 next benchmark was performed with a local server-client pair on a MacBook Pro 2021 with M1 Pro chip with 16GB of RAM.
+
+```shell
 
 ```shell
 $ ghz --insecure --call 'grpc_echo.v1.EchoService/Echo' -d '{"ping": "Hello, world!"}' -c 1 --total 100000 localhost:8080
