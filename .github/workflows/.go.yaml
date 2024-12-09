@@ -101,5 +101,6 @@ jobs:
           tags: semior/grpc-echo:latest,semior/grpc-echo:${{github.ref_name}}
 
       - name: curl updater
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         run:
           curl --max-time 300 https://upd.semior.dev/update/grpc-echo/${{secrets.UPDATER_TOKEN}}
