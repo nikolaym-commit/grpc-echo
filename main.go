@@ -21,6 +21,7 @@ import (
 	"github.com/Semior001/grpc-echo/pkg/grpcx"
 	"github.com/Semior001/grpc-echo/pkg/service"
 	"google.golang.org/grpc/credentials"
+	"sync"
 	"google.golang.org/grpc/grpclog"
 )
 
@@ -121,12 +122,14 @@ func run(ctx context.Context) error {
 		return nil
 	})
 
-	if err = ewg.Wait(); err != nil {
+	if err := ewg.Wait(); err != nil {
 		return err
 	}
 
 	return nil
 }
+
+var setupLoggerOnce sync.Once
 
 func setupLog(dbg, json bool) {
 	defer slog.Info("prepared logger", slog.Bool("debug", dbg), slog.Bool("json", json))
@@ -145,7 +148,9 @@ func setupLog(dbg, json bool) {
 	}
 
 	slog.SetDefault(slog.New(handler))
-	grpclog.SetLoggerV2(grpcx.Logger{
-		Logger: slog.NewLogLogger(handler, slog.LevelDebug),
+	setupLoggerOnce.Do(func() {
+		grpclog.SetLoggerV2(grpcx.Logger{
+			Logger: slog.NewLogLogger(handler, slog.LevelDebug),
+		})
 	})
 }

@@ -1,11 +1,14 @@
 module github.com/Semior001/grpc-echo
 
-go 1.23.3
+go 1.23.4
+
+replace github.com/Semior001/grpc-echo/echopb => ./echopb
 
 require (
+	github.com/Semior001/grpc-echo/echopb v0.0.0-00010101000000-000000000000
 	github.com/jessevdk/go-flags v1.6.1
 	golang.org/x/sync v0.8.0
-	google.golang.org/grpc v1.68.0
+	google.golang.org/grpc v1.68.1
 	google.golang.org/protobuf v1.35.2
 )
 

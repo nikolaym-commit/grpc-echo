@@ -70,9 +70,10 @@ func setup(tb testing.TB) (port int, conn *grpc.ClientConn) {
 		}
 	}()
 
-	finished := make(chan struct{})
+	started, finished := make(chan struct{}), make(chan struct{})
 	go func() {
 		tb.Logf("running server on port %d", port)
+		close(started)
 		main()
 		close(finished)
 	}()
@@ -82,6 +83,8 @@ func setup(tb testing.TB) (port int, conn *grpc.ClientConn) {
 		<-finished
 	})
 
+	<-started
+	time.Sleep(time.Millisecond * 50) // do not start right away
 	conn, err := grpc.NewClient(fmt.Sprintf("localhost:%d", port),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUserAgent("grpc-echo-test-ua"))
