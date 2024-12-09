@@ -23,14 +23,24 @@ import (
 	"google.golang.org/grpc/credentials"
 	"sync"
 	"google.golang.org/grpc/grpclog"
+	"time"
+	"google.golang.org/grpc/keepalive"
 )
 
 var opts struct {
 	SSL struct {
 		Enable bool   `long:"enable"        env:"ENABLE" description:"Enable SSL"`
-		Cert   string `long:"cert"          env:"CERT" description:"path to cert.pem file"`
-		Key    string `long:"key"           env:"KEY"  description:"path to key.pem file"`
-	} `group:"ssl" namespace:"ssl" env-namespace:"SSL"`
+		Cert   string `long:"cert"          env:"CERT"   description:"path to cert.pem file"`
+		Key    string `long:"key"           env:"KEY"    description:"path to key.pem file"`
+	} `group:"ssl" namespace:"ssl" env-namespace:"SSL" description:"ssl settings"`
+
+	Keepalive struct {
+		MaxConnIdle time.Duration `long:"max-conn-idle" env:"MAX_CONN_IDLE"      default:"3s"   description:"max time a connection can be idle"`
+		MaxConnAge  time.Duration `long:"max-conn-age"  env:"MAX_CONN_AGE_GRACE" default:"5s"   description:"max time a connection can exist (jitter +/-10%)"`
+		Time        time.Duration `long:"time"          env:"TIME"               default:"1s"   description:"interval between server pings"`
+	} `group:"keepalive" namespace:"keepalive" env-namespace:"KEEPALIVE" description:"keepalive settings"`
+
+	StreamTimeout time.Duration `long:"stream-timeout" env:"STREAM_TIMEOUT" default:"5s" description:"stream timeout, 0 means no timeout"`
 
 	Addr  string `short:"a" long:"addr" env:"ADDR" default:":8080" description:"Address to listen on"`
 	JSON  bool   `long:"json"           env:"JSON"                 description:"Enable JSON logging"`
@@ -97,9 +107,28 @@ func run(ctx context.Context) error {
 	srv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
 			svc.AppendTimestampInterceptor,
-			grpcx.LogInterceptor,
+			grpcx.LogUnaryInterceptor,
+		),
+		grpc.ChainStreamInterceptor(
+			grpcx.LogStreamInterceptor,
+			grpcx.TimeoutStreamInterceptor(opts.StreamTimeout),
 		),
 		grpc.Creds(cred),
+		grpc.ConnectionTimeout(5*time.Second),
+		grpc.MaxConcurrentStreams(1000),
+		grpc.MaxHeaderListSize(1024*4),     // 4KB
+		grpc.MaxRecvMsgSize(1024*4),        // 4KB
+		grpc.MaxSendMsgSize(1024*4),        // 4KB
+		grpc.HeaderTableSize(1024*4),       // 4KB
+		grpc.InitialWindowSize(1024*4),     // 4KB
+		grpc.InitialConnWindowSize(1024*4), // 4KB
+		grpc.WriteBufferSize(1024*4),       // 4KB
+		grpc.ReadBufferSize(1024*4),        // 4KB
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle: opts.Keepalive.MaxConnIdle,
+			MaxConnectionAge:  opts.Keepalive.MaxConnAge,
+			Time:              opts.Keepalive.Time,
+		}),
 	)
 	healthpb.RegisterHealthServer(srv, healthHandler)
 	echopb.RegisterEchoServiceServer(srv, svc)

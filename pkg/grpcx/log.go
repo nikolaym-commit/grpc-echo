@@ -9,26 +9,49 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 	"log"
+	"time"
 )
 
-// LogInterceptor logs gRPC calls.
-func LogInterceptor(
+// LogUnaryInterceptor logs gRPC calls.
+func LogUnaryInterceptor(
 	ctx context.Context,
 	req any,
 	info *grpc.UnaryServerInfo,
 	handler grpc.UnaryHandler,
 ) (resp any, err error) {
+	now := time.Now()
 	resp, err = handler(ctx, req)
 	p, _ := peer.FromContext(ctx)
 	slog.DebugContext(ctx, "gRPC call",
 		slog.String("method", info.FullMethod),
 		slog.Any("error", err),
+		slog.Duration("duration", time.Since(now)),
 		slog.Group("peer",
 			slog.String("ip", p.Addr.String()),
-			slog.String("local_ip", p.LocalAddr.String()),
 			slog.Any("auth", p.AuthInfo != nil),
 		))
 	return resp, err
+}
+
+// LogStreamInterceptor logs gRPC streams.
+func LogStreamInterceptor(
+	srv any,
+	ss grpc.ServerStream,
+	info *grpc.StreamServerInfo,
+	handler grpc.StreamHandler,
+) error {
+	now := time.Now()
+	err := handler(srv, ss)
+	p, _ := peer.FromContext(ss.Context())
+	slog.DebugContext(ss.Context(), "gRPC stream",
+		slog.String("method", info.FullMethod),
+		slog.Any("error", err),
+		slog.Duration("duration", time.Since(now)),
+		slog.Group("peer",
+			slog.String("ip", p.Addr.String()),
+			slog.Any("auth", p.AuthInfo != nil),
+		))
+	return err
 }
 
 // Logger implements grpclog.LoggerV2 to log to slog.

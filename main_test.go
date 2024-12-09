@@ -14,6 +14,9 @@ import (
 	"context"
 	"github.com/Semior001/grpc-echo/echopb"
 	"reflect"
+	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/codes"
+	"strings"
 )
 
 func TestMain_run(t *testing.T) {
@@ -52,6 +55,29 @@ func TestMain_run(t *testing.T) {
 		resp.HandlerRespondedAt.AsTime().Sub(now))
 }
 
+func TestMain_DropStream(t *testing.T) {
+	_, conn := setup(t, "--stream-timeout", "500ms")
+	defer conn.Close()
+	waitForServerUp(t, conn)
+
+	client := healthpb.NewHealthClient(conn)
+
+	now := time.Now()
+	stream, err := client.Watch(context.Background(), &healthpb.HealthCheckRequest{})
+	assert(t, err == nil, "failed to create stream: %v", err)
+
+	// first recv should be fine
+	_, err = stream.Recv()
+	assert(t, err == nil, "failed to recv: %v", err)
+
+	// second recv should fail
+	_, err = stream.Recv()
+	st, ok := status.FromError(err)
+	assert(t, ok, "unexpected error: %v", err)
+	assert(t, st.Code() == codes.DeadlineExceeded, "unexpected code: %v", st.Code())
+	assert(t, time.Since(now) < 600*time.Millisecond, "more than 600ms passed: %s", time.Since(now))
+}
+
 func assert(tb testing.TB, cond bool, format string, args ...any) {
 	tb.Helper()
 	if !cond {
@@ -59,9 +85,9 @@ func assert(tb testing.TB, cond bool, format string, args ...any) {
 	}
 }
 
-func setup(tb testing.TB) (port int, conn *grpc.ClientConn) {
+func setup(tb testing.TB, flags ...string) (port int, conn *grpc.ClientConn) {
 	port = 40000 + int(rand.Int31n(10000))
-	os.Args = []string{"test", "--addr", ":" + strconv.Itoa(port)}
+	os.Args = append([]string{"test", "--addr", ":" + strconv.Itoa(port)}, flags...)
 
 	done := make(chan struct{})
 	go func() {
@@ -93,6 +119,13 @@ func setup(tb testing.TB) (port int, conn *grpc.ClientConn) {
 	if err != nil {
 		tb.Fatalf("failed to create client: %v", err)
 	}
+
+	tb.Cleanup(func() {
+		if err := conn.Close(); err != nil &&
+			!strings.Contains(err.Error(), "grpc: the client connection is closing") {
+			tb.Errorf("failed to close connection: %v", err)
+		}
+	})
 
 	return port, conn
 }
