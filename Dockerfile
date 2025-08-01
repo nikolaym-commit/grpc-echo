@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS builder
+FROM public.ecr.aws/docker/library/golang:1.23-alpine3.22 AS builder
 
 ENV CGO_ENABLED=0
 
@@ -23,8 +23,8 @@ RUN \
     go build -o /go/build/grpc-echo -ldflags "-X 'main.version=${version}' -s -w" /srv/main.go
 
 FROM scratch
-LABEL org.opencontainers.image.source="https://github.com/Semior001/grpc-echo"
-LABEL maintainer="Semior <ura2178@gmail.com>"
+LABEL org.opencontainers.image.source="https://github.com/nikolaym-commit/grpc-echo"
+LABEL maintainer="NikolayM <nikolaym@comm-it.com>"
 
 COPY --from=builder /go/build/grpc-echo /usr/bin/grpc-echo
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
