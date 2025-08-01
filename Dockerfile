@@ -15,7 +15,7 @@ COPY ./pkg/ /srv/pkg
 COPY ./go.mod /srv/go.mod
 COPY ./go.sum /srv/go.sum
 
-COPY ./.git/ /srv/.git
+# COPY ./.git/ /srv/.git
 
 RUN \
     export version="$(git describe --tags --long)" && \
